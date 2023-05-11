@@ -124,8 +124,8 @@ class catalog_values(APIView):
         if updateFilters == "1":
             feature_data = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id__in=row_.values_list("id"))
 
-            # filters["Brands"] = Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values("id", "name")
-            # filters["Series"] = Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values("id", "name")
+            filters["Brands"] = Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values("id", "name")
+            filters["Series"] = Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values("id", "name")
 
             feature = FeatureETIMDetails.objects.filter(id__in=feature_data.values_list("featureETIMDetails")).values()
 
