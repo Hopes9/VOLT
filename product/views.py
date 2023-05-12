@@ -6,13 +6,14 @@ from pprint import pprint
 
 import xmltodict
 from django.db import connection
-from django.db.models import Q, Max, Min, Count, Sum
+from django.db.models import Q, Max, Min, Count, Sum, Subquery, OuterRef
 from django.db.models.functions import Length
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import get_object_or_404
 
+from order.models import Order, Order_list
 from product.func import update_catalog, chekListInt, percent
 from product.models import Product, Analog, Brand, CatalogBrochure, CertificateInfo, Country, FeatureETIMDetails, \
     FeatureETIMDetails_Data, Product_image, Passport, RelatedProd, RsCatalog, Product_video, Series
@@ -78,8 +79,12 @@ class catalog_values(APIView):
         price_min = request.data.get("price_min")
         price_max = request.data.get("price_max")
 
+        sort = request.data.get("sort")
+
         brand = request.data.get("brand")
         series = request.data.get("series")
+
+        feature = request.data.get("feature")
 
         updateFilters = request.data.get("updateFilters", True)
 
@@ -109,11 +114,30 @@ class catalog_values(APIView):
                 row_ = row_.filter(Series__in=k)
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
-        try:
-            limit = int(limit)
-            page = int(page)
-        except:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if feature:
+            try:
+                feature = dict(json.loads(feature))
+                data = FeatureETIMDetails.objects.filter(id__in=list(feature.keys()))
+                datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=data.values("id"))
+                for h in feature.keys():
+                    datas = datas.filter(featureValue__in=feature.get(h))
+                row_ = row_.filter(id__in=datas.values("featureETIMDetails_product_id"))
+            except json.decoder.JSONDecodeError:
+                return Response(data={"ERROR": "Feature Example: {'1567': ['300']}"}, status=status.HTTP_400_BAD_REQUEST)
+        if sort:
+            if sort in ["descending", "ascending", "popularity"]:
+                if sort == "descending":
+                    row_ = row_.order_by("-ProductName")
+                elif sort == "ascending":
+                    row_ = row_.order_by("ProductName")
+                elif sort == "popularity":
+                    raw = Order_list.objects.filter(product__in=row_.values("id")).annotate(counts=Sum('count'))
+                    row_ = row_.order_by(
+                        Subquery(raw.filter(product_id=OuterRef('id')).values('counts')[:1])
+                    )
+            else:
+                return Response({"Error": "Find type error"})
+
 
         start_index = (page - 1) * limit
         end_index = start_index + limit
@@ -132,8 +156,9 @@ class catalog_values(APIView):
             result = (
                 feature_data
                 .values('featureETIMDetails_id', 'featureValue')
-                .annotate(count=Count('*'))
+                .annotate(count=Count('featureETIMDetails_id'))
                 .order_by('featureETIMDetails_id', Length("featureValue"), 'featureValue')
+                .filter(featureValue__isnull=False)
                 .values('featureETIMDetails_id', 'featureValue', 'count')
             )
 
@@ -165,12 +190,14 @@ class catalog_values(APIView):
                     h["featureValue"].append(
                         {"featureValue": i["featureValue"], "count": i["count"]}
                     )
-
         return Response({
             "count_pages": row_count // limit,
             "price_min": row_.aggregate(Min('RetailPrice'))["RetailPrice__min"],
             "price_max": row_.aggregate(Max('RetailPrice'))["RetailPrice__max"],
-            "data": ProductSerializer(row_[start_index:end_index], many=True).data,
+            "data": row_[start_index:end_index].values("id", "is_hit", "is_new", "discount", "Dimension", "EAN", "GuaranteePeriod",
+                  "image", "ItemID", "ItemsPerUnit", "Multiplicity", "ParentProdCode", "ParentProdGroup", "ProductCode",
+                  "ProductDescription", "ProductGroup", "ProductName", "SenderPrdCode", "UOM",
+                  "Weight", "brand", "brand__name", "Series", "Series__name", "AnalitCat", "Price2", "RetailPrice", "RetailCurrency",),
             "filters": filters if updateFilters else [],
         })
 class Open_product(APIView):

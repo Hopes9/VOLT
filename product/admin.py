@@ -26,8 +26,7 @@ class Analog_Admin(admin.ModelAdmin):
 admin.site.register(Passport, admin.ModelAdmin)
 
 admin.site.register(Country, admin.ModelAdmin)
-admin.site.register(FeatureETIMDetails, admin.ModelAdmin)
-admin.site.register(FeatureETIMDetails_Data, admin.ModelAdmin)
+
 admin.site.register(CertificateInfo, admin.ModelAdmin)
 admin.site.register(RelatedProd, admin.ModelAdmin)
 admin.site.register(CatalogBrochure, admin.ModelAdmin)
@@ -43,6 +42,28 @@ class RsCatalogAdmin(admin.ModelAdmin):
     list_display = ["id", "product_catalog", "Level2ID", "Level2Name", "Level3ID", "Level3Name", "Level4ID",
                     "Level4Name"]
 
+@admin.register(FeatureETIMDetails)
+class FeatureETIMDetailsAdmin(admin.ModelAdmin):
+    readonly_fields = ()
+    list_display = [
+        "id",
+        "featureCode",
+        "featureUom",
+        "featureName",
+    ]
+    list_max_show_all = 5000000
+    list_per_page = 1000
+@admin.register(FeatureETIMDetails_Data)
+class FeatureETIMDetails_DataAdmin(admin.ModelAdmin):
+    readonly_fields = ("featureETIMDetails_product", "featureETIMDetails")
+    list_display = [
+        "id",
+        "featureETIMDetails_product",
+        "featureETIMDetails",
+        "featureValue",
+    ]
+    list_max_show_all = 5000000
+    list_per_page = 1000
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
