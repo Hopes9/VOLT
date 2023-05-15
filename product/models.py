@@ -31,7 +31,7 @@ class Product(models.Model):
     is_hit             = models.BooleanField(_("Хит!"), null=True, default=False)
     is_new             = models.BooleanField(_("Новое!"), null=True, default=False)
     show               = models.BooleanField(_("Показывать на сайте"), default=True, blank=True)
-    discount           = models.IntegerField(_("Скидка цена"), null=True, default=None)
+    discount           = models.IntegerField(_("Скидка цена"), null=True, default=None, blank=True)
     delete             = models.BooleanField(default=False)
 
     Dimension          = models.JSONField(_("Единица измерения"),null=True, blank=True)

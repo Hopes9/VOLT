@@ -114,14 +114,16 @@ class catalog_values(APIView):
                 return Response(status.HTTP_204_NO_CONTENT)
         if feature:
             try:
-                feature = dict(json.loads(feature))
-                data = FeatureETIMDetails.objects.filter(id__in=list(feature.keys()))
+                feature = json.loads(feature)
+                list_feature_id = [h["feature_id"] for h in feature]
+                data = FeatureETIMDetails.objects.filter(id__in=list_feature_id)
+
                 datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=data.values("id"))
-                for h in feature.keys():
-                    datas = datas.filter(featureValue__in=feature.get(h))
+                for h in feature:
+                    datas = datas.filter(featureValue__in=h["data"])
                 row_ = row_.filter(id__in=datas.values("featureETIMDetails_product_id"))
-            except json.decoder.JSONDecodeError:
-                return Response(data={"ERROR": "Feature Example: {'1567': ['300']}"}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         if sort:
             if sort in ["descending", "ascending", "popularity"]:
                 if sort == "descending":
@@ -144,8 +146,9 @@ class catalog_values(APIView):
 
 
         filter_data = []
+        filters = {"others": []}
         if updateFilters == "1":
-            filters = {}
+
             feature_data = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id__in=row_.values_list("id"))
             filters["others"] = []
             filters["others"].append({"name": "Brands", "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values("id", "name")})
@@ -193,7 +196,6 @@ class catalog_values(APIView):
 
             for i in list(filters.keys())[1:]:
                 filter_data.append(filters.get(i))
-
         return Response({
             "count_pages": row_count // limit,
             "price_min": row_.aggregate(Min('RetailPrice'))["RetailPrice__min"],
@@ -202,8 +204,9 @@ class catalog_values(APIView):
                   "image", "ItemID", "ItemsPerUnit", "Multiplicity", "ParentProdCode", "ParentProdGroup", "ProductCode",
                   "ProductDescription", "ProductGroup", "ProductName", "SenderPrdCode", "UOM",
                   "Weight", "brand", "brand__name", "Series", "Series__name", "AnalitCat", "Price2", "RetailPrice", "RetailCurrency",),
+            "others": filters["others"] if updateFilters else [],
             "filters": filter_data if updateFilters else [],
-        })
+            })
 class Open_product(APIView):
     def get(self, request, pk):
         product = get_object_or_404(Product, id=pk)
