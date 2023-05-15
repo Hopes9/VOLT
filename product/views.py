@@ -142,12 +142,14 @@ class catalog_values(APIView):
 
         row_count = row_.count()
 
-        filters = {}
-        if updateFilters == "1":
-            feature_data = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id__in=row_.values_list("id"))
 
-            filters["Brands"] = Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values("id", "name")
-            filters["Series"] = Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values("id", "name")
+        filter_data = []
+        if updateFilters == "1":
+            filters = {}
+            feature_data = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id__in=row_.values_list("id"))
+            filters["others"] = []
+            filters["others"].append({"name": "Brands", "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values("id", "name")})
+            filters["others"].append({"name": "Series", "values": Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values("id", "name")})
 
             feature = FeatureETIMDetails.objects.filter(id__in=feature_data.values_list("featureETIMDetails")).values()
 
@@ -188,6 +190,10 @@ class catalog_values(APIView):
                     h["featureValue"].append(
                         {"featureValue": i["featureValue"], "count": i["count"]}
                     )
+
+            for i in list(filters.keys())[1:]:
+                filter_data.append(filters.get(i))
+
         return Response({
             "count_pages": row_count // limit,
             "price_min": row_.aggregate(Min('RetailPrice'))["RetailPrice__min"],
@@ -196,7 +202,7 @@ class catalog_values(APIView):
                   "image", "ItemID", "ItemsPerUnit", "Multiplicity", "ParentProdCode", "ParentProdGroup", "ProductCode",
                   "ProductDescription", "ProductGroup", "ProductName", "SenderPrdCode", "UOM",
                   "Weight", "brand", "brand__name", "Series", "Series__name", "AnalitCat", "Price2", "RetailPrice", "RetailCurrency",),
-            "filters": filters if updateFilters else [],
+            "filters": filter_data if updateFilters else [],
         })
 class Open_product(APIView):
     def get(self, request, pk):
