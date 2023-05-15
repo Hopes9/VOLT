@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.static import serve
@@ -6,6 +5,7 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 
+from . import settings
 from .views import LogoutView, LogoutAllView, CookieTokenObtainPairView, CookieTokenRefreshView, All_product, \
     Rassilka_off
 
@@ -42,9 +42,8 @@ urlpatterns = [
       path("product/", include("product.urls")),
 
       path("all_product/", All_product.as_view()),
-      re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}, name='static'),
+      re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATICFILES_DIRS}, name='static'),
       re_path(r'^staticfiles/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}, name='staticfiles'),
       path('sberbank/', include('sberbank.urls')),
       path("rassilka_off/", Rassilka_off.as_view()),
-
 ]

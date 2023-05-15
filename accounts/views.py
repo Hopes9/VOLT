@@ -94,10 +94,11 @@ def delete_from_confirm(phone, code):
 
 def generate_phone_code(phone):
     code = call_phone(phone)
-    Confirm_phone.objects.create(code=code, phone=phone, ucaller_id=code)
+    Confirm_phone.objects.update_or_create(code=code, phone=phone, ucaller_id=code)
 
     scheduler.add_job(delete_from_confirm, 'date', [phone, code],
                       run_date=datetime.datetime.now() + datetime.timedelta(minutes=2))
+
     return Response({"info": "Код отправлен, код работает 2 мин", "text": code}, status=status.HTTP_200_OK)
 
 

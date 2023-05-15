@@ -46,7 +46,7 @@ class Order(models.Model):
                                               default=Status.CREATED, db_index=True)
     data_order = models.DateTimeField(_("Дата создания"), auto_now_add=True)
     address = models.TextField(_("Адрес"),)
-    chek = models.TextField(_("Чек"),)
+    chek = models.TextField(_("Чек"), null=True, blank=True)
 
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE)
     pay = models.BooleanField(_("Оплачено"), default=False)

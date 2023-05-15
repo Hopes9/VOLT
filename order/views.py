@@ -19,69 +19,78 @@ from product.models import Product
 from sberbank.models import Payment
 from sberbank.service import BankService
 from order.func import send_my_email_create
-from order.models import Order, Order_list, Status
+from order.models import Order, Order_list, Status, Delivery
 from product.func import dict_fetch_all, get_secret_key_
 
 
 @permission_classes([IsAuthenticated])
 class Post_order(APIView):
     def post(self, request):
+        basket = Basket.objects.filter(id_user_id=request.user.id, buy_now=True)\
+            .values("id",
+                    "id_user",
+                    "product_id",
+                    "product__ProductName",
+                    "product__image",
+                    "product__discount",
+                    "product__RetailPrice",
+                    "count",
+                    "buy_now")
 
-        basket_list = Basket.objects.filter(id_user_id=request.user.id)
-        basket = basket_list.values_list("product_id")
         if len(basket) == 0:
             return Response({"detail": "Нет товаров"})
-        Product_list = Product.objects.filter(id__in=basket)
+        price = 0.0
+        for i in basket:
+            if int(i["product__discount"]) != 0:
+                if request.user.distribution is True:
+                    price += (float(i["product__RetailPrice"]) - (float(i["product__RetailPrice"]) * float(i["distribution_count"] / 100))) * int(
+                        i["count"])
+                    continue
+                price += float(i["product__RetailPrice"]) - (float(i["product__RetailPrice"]) * (i["product__discount"] / 100))
+            else:
+                if request.user.distribution is True:
+                    price += (float(i["product__RetailPrice"]) - (float(i["product__RetailPrice"]) * float(i["distribution_count"] / 100))) * int(
+                        i["count"])
+                    continue
+                price += float(i["product__RetailPrice"]) * int(i["count"])
 
-        price_sber = 0.0
-        count_product = 0
-        #
-        # if request.data.get("pay_online") and request.data.get("address") and request.data.get("delivery"):
-        #     pay_online = json.loads(request.data.get("pay_online").lower())
-        #     for i in Product_list:
-        #         count_product += i["count"]
-        #
-        #         if int(i["discount"]) != 0:
-        #             if request.user.distribution is True:
-        #                 price_sber += (float(i["price"]) - (float(i["price"]) * float(i["distribution_count"] / 100))) * int(i["count"])
-        #                 continue
-        #             price_sber += float(i["price"]) - (float(i["price"]) * (i["discount"] / 100))
-        #         else:
-        #             if request.user.distribution is True:
-        #                 price_sber += (float(i["price"]) - (float(i["price"]) * float(i["distribution_count"] / 100))) * int(i["count"])
-        #                 continue
-        #             price_sber += float(i["price"]) * int(i["count"])
-        #
-        #     order = Order.objects.create(id_user=request.user,
-        #                                  order_id=f"{request.user.id}",
-        #                                  status=Status.CREATED,
-        #                                  address=request.data.get("address"),
-        #                                  chek=None,
-        #                                  pay=False,
-        #                                  pay_online=pay_online,
-        #                                  sum_sber=price_sber,
-        #                                  discount=request.user.distribution,
-        #                                  delivery_id=request.data.get("delivery"),
-        #                                  count_product=count_product
-        #                                  )
-        #
-        #     order.order_id = f"{get_secret_key_()}-{order.id}"
-        #     order.save()
-        #     for i in row:
-        #         money = i["price"]
-        #         money = float(money) - float(money) * float(i["distribution_count"] / 100)
-        #         Order_list.objects.create(product_id=i["product_id"],
-        #                                   order=order,
-        #                                   money=money,
-        #                                   count=i["count"])
-        #     order_values = dict(Order.objects.filter(id=order.id).values().first())
-        #     ros = Order_list.objects.filter(order_id=order.id).values()
-        #     order_values.update(order_list=ros)
-        #
-        #     send_my_email_create(order)
-        #
-        #     return Response(order_values)
-        return Response(Product_list.values())
+
+        if request.data.get("pay_online") and request.data.get("address") and request.data.get("delivery"):
+            pay_online = json.loads(request.data.get("pay_online").lower())
+            delivery, create = Delivery.objects.get_or_create(user_id_id=request.user.id, delivery_text=request.data.get("delivery"))
+            order = Order.objects.create(id_user_id=request.user.id,
+                                         status=Status.CREATED,
+                                         address=request.data.get("address"),
+                                         chek=None,
+                                         pay=False,
+                                         pay_online=pay_online,
+                                         sum=price,
+                                         discount=request.user.distribution,
+                                         delivery=delivery,
+                                         count_product=basket.count()
+                                         )
+
+            order.order_id = f"{get_secret_key_()}-{order.id}"
+            order.save()
+            for i in basket:
+                print(i)
+                money = i["product__RetailPrice"]
+                money = float(money) - float(money) * float(i["product__discount"] / 100)
+                order_list = Order_list.objects.create(product_id=i["product_id"],
+                                          order_id=order.id,
+                                          money=money,
+                                          count=i["count"])
+                order_list.save()
+            order_values = dict(Order.objects.filter(id=order.id).values().first())
+            ros = Order_list.objects.filter(order_id=order.id).values()
+            order_values.update(order_list=ros)
+
+            # send_my_email_create(order)
+
+            Basket.objects.filter(buy_now=True, id_user_id=request.user.id).delete()
+
+            return Response(order_values)
+        return Response({"Error": "get pay_online, address, delivery"})
 
 
 def chek_uuid(uuid_):
@@ -187,7 +196,7 @@ class My_orders(APIView):
                         i.update(price_currency="USD")
             return Response(row)
 
-
+@permission_classes([IsAuthenticated])
 class Create_pay(APIView):
     def get(self, request):
         if request.GET.get('order') is None:

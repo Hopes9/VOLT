@@ -9,6 +9,8 @@ from django.db import connection
 from django.db.models import Q, Max, Min, Count, Sum, Subquery, OuterRef
 from django.db.models.functions import Length
 from rest_framework import status
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import get_object_or_404
@@ -78,14 +80,10 @@ class catalog_values(APIView):
         Level4 = request.data.get("Level4")
         price_min = request.data.get("price_min")
         price_max = request.data.get("price_max")
-
         sort = request.data.get("sort")
-
         brand = request.data.get("brand")
         series = request.data.get("series")
-
         feature = request.data.get("feature")
-
         updateFilters = request.data.get("updateFilters", True)
 
         rsCatalog = RsCatalog.objects.all()
@@ -246,7 +244,7 @@ class Open_product(APIView):
 
         return Response(data)
 
-
+@permission_classes([IsAuthenticated])
 class Update_pricat(APIView):
     def post(self, request):
         file = request.FILES.get("file")
@@ -295,14 +293,14 @@ class Update_pricat(APIView):
                 break
         return Response(data, status=status.HTTP_200_OK)
 
-
+@permission_classes([IsAuthenticated])
 class UpdateCatalog(APIView):
     def get(self, request):
         data = update_catalog()
         with open("catalog.json", "w", encoding='utf-8') as f:
             json.dump(data, f, indent=4)
         return Response(data, status=status.HTTP_200_OK)
-
+@permission_classes([IsAuthenticated])
 class Update_prodat(APIView):
     def post(self, request):
         file = request.FILES.get("file")
