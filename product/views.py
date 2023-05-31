@@ -1,27 +1,25 @@
 import json
 import json
+import math
 import mmap
-from collections import Counter
-from pprint import pprint
 
 import xmltodict
-from django.db import connection
 from django.db.models import Q, Max, Min, Count, Sum, Subquery, OuterRef
 from django.db.models.functions import Length
 from rest_framework import status
 from rest_framework.decorators import permission_classes
+from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import get_object_or_404
 
-from order.models import Order, Order_list
-from product.func import update_catalog, chekListInt, percent
+from order.models import Order_list
+from product.func import update_catalog, chekListInt
 from product.models import Product, Analog, Brand, CatalogBrochure, CertificateInfo, Country, FeatureETIMDetails, \
     FeatureETIMDetails_Data, Product_image, Passport, RelatedProd, RsCatalog, Product_video, Series
 from product.serializers import ProductSerializer, CertificateInfoSerializer, Product_imageSerializer, \
     Product_videoSerializer, RelatedProdSerializer, CountrySerializer, \
-    RsCatalogSerializer, CatalogBrochureSerializer, FeatureETIMDetails_DataSerializer
+    RsCatalogSerializer, CatalogBrochureSerializer
 
 
 class Product_(APIView):
@@ -128,15 +126,19 @@ class getFilters(APIView):
             except Exception as e:
                 return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
-        filters["filters"] = FeatureETIMDetails.objects.filter(featureetimdetails_data__featureETIMDetails_product__id__in=
-                                                               row_.values_list("id", flat=True)).distinct("featureName").values()
+        filterM = FeatureETIMDetails.objects.filter(featureetimdetails_data__featureETIMDetails_product__id__in=
+                                                               row_.values_list("id", flat=True))\
+            .annotate(count=Count("featureName")).order_by("-count")
+        if filterM.count() > 20:
+            filterM = filterM[:20]
+        filters["filters"] = filterM.values()
 
-        filters["others"] = [{"name": "Brands",
-                              "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values(
-                                  "id", "name")},
-                             {"name": "Series",
-                              "values": Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values(
-                                  "id", "name")}]
+        # filters["others"] = [{"name": "Brands",
+        #                       "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values(
+        #                           "id", "name")},
+        #                      {"name": "Series",
+        #                       "values": Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values(
+        #                           "id", "name")}]
 
         return Response(filters)
 
@@ -251,9 +253,14 @@ class catalog_values(APIView):
         if sort:
             if sort in ["descending", "ascending", "popularity"]:
                 if sort == "descending":
-                    row_ = row_.order_by("-ProductName")
+                    row_ = row_.order_by("-RetailPrice")
                 elif sort == "ascending":
-                    row_ = row_.order_by("ProductName")
+                    row_ = row_.order_by("RetailPrice")
+                elif sort == "descendingGroup":
+                    row_ = row_.order_by("-ProductName", "RetailPrice")
+                elif sort == "ascendingGroup":
+                    row_ = row_.order_by("ProductName", "RetailPrice")
+
                 elif sort == "popularity":
                     raw = Order_list.objects.filter(product__in=row_.values("id")).annotate(counts=Sum('count'))
                     row_ = row_.order_by(
@@ -322,7 +329,7 @@ class catalog_values(APIView):
             for i in list(filters.keys())[1:]:
                 filter_data.append(filters.get(i))
         return Response({
-            "count_pages": row_count // limit,
+            "count_pages": math.ceil(row_count / limit),
             "price_min": row_.aggregate(Min('RetailPrice'))["RetailPrice__min"],
             "price_max": row_.aggregate(Max('RetailPrice'))["RetailPrice__max"],
             "data": row_[start_index:end_index].values("id", "is_hit", "is_new", "discount", "Dimension", "EAN",
