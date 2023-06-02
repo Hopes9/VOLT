@@ -251,7 +251,7 @@ class catalog_values(APIView):
                 return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
         if sort:
-            if sort in ["descending", "ascending", "popularity"]:
+            if sort in ["descending", "ascending", "popularity", "descendingGroup", "ascendingGroup"]:
                 if sort == "descending":
                     row_ = row_.order_by("-RetailPrice")
                 elif sort == "ascending":
@@ -260,7 +260,6 @@ class catalog_values(APIView):
                     row_ = row_.order_by("-ProductName", "RetailPrice")
                 elif sort == "ascendingGroup":
                     row_ = row_.order_by("ProductName", "RetailPrice")
-
                 elif sort == "popularity":
                     raw = Order_list.objects.filter(product__in=row_.values("id")).annotate(counts=Sum('count'))
                     row_ = row_.order_by(
