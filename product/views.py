@@ -127,19 +127,18 @@ class getFilters(APIView):
                 return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
         filterM = FeatureETIMDetails.objects.filter(featureetimdetails_data__featureETIMDetails_product__id__in=
-                                                               row_.values_list("id", flat=True))\
+                                                    row_.values_list("id", flat=True)) \
             .annotate(count=Count("featureName")).order_by("-count")
         if filterM.count() > 20:
             filterM = filterM[:20]
         filters["filters"] = filterM.values()
 
-        # filters["others"] = [{"name": "Brands",
-        #                       "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values(
-        #                           "id", "name")},
-        #                      {"name": "Series",
-        #                       "values": Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values(
-        #                           "id", "name")}]
-
+        filters["others"] = [{"name": "Brands",
+                              "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values(
+                                  "id", "name")},
+                             {"name": "Series",
+                              "values": Series.objects.filter(id__in=row_.values_list("Series", flat=True)).values(
+                                  "id", "name")}]
         return Response(filters)
 
 
@@ -152,6 +151,7 @@ class getFiltersInt(APIView):
         price_max = request.data.get("price_max")
         brand = request.data.get("brand")
         series = request.data.get("series")
+        featureData = request.data.get("feature")
 
         rsCatalog = RsCatalog.objects.all()
         if Level2:
@@ -183,15 +183,40 @@ class getFiltersInt(APIView):
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
 
-        data = FeatureETIMDetails.objects.get(id=feature)
-        dataF = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id__in=row_.values_list("id", flat=True), featureETIMDetails_id=data.id)
+        data = get_object_or_404(FeatureETIMDetails, id=feature)
+        dataF = list(FeatureETIMDetails_Data.objects.filter(
+            featureETIMDetails_product__id__in=row_.values_list("id", flat=True), featureETIMDetails_id=data.id). \
+            values("featureValue"). \
+            annotate(count=Count('featureValue')). \
+            order_by('featureValue', Length("featureValue"), "count"). \
+            values('featureValue', 'count'))
+
+        if featureData:
+            try:
+                featureData = json.loads(featureData)
+                list_feature_id = [h["feature_id"] for h in featureData]
+                dataG = FeatureETIMDetails.objects.filter(id__in=list_feature_id)
+    
+                datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=dataG.values("id"))
+                for h in featureData:
+                    datas = datas.filter(featureValue__in=h["data"])
+    
+                datas = datas.values("featureValue"). \
+                    order_by('featureValue', Length("featureValue")). \
+                    values_list('featureValue', flat=True)
+    
+                for i in dataF:
+                    if i["featureValue"] not in datas:
+                        i["disable"] = True
+
+            except Exception as e:
+                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
+                                status=status.HTTP_400_BAD_REQUEST)
         return Response(
             {
                 "feature_id": data.id,
                 "feature": data.featureName,
-                "data": dataF.values("featureValue").annotate(count=Count('featureValue')).order_by("-count")
-                .order_by('featureValue', Length("featureValue"), "count")
-                .values('featureValue', 'count')
+                "data": dataF,
             }
         )
 
@@ -496,7 +521,7 @@ class Update_prodat(APIView):
                         "VendorProdNum": i["VendorProdNum"],
                         "Weight": i["Weight"]["Value"]
                     }
-                    )
+                                                                             )
                     Main_product.save()
                     MId = Main_product.id
                 except Exception as e:
@@ -591,7 +616,7 @@ class Update_prodat(APIView):
                             if i["FeatureETIMDetails"]["FeatureETIM"]["FeatureValue"] is not None:
                                 FeatureETIMDetails_main, created = FeatureETIMDetails.objects.update_or_create(
                                     featureCode=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureCode"],
-                                    defaults= dict(
+                                    defaults=dict(
                                         featureName=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureName"],
                                         featureUom=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureUom"]
                                     ),
