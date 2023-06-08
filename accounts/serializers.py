@@ -32,3 +32,13 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         return instance
 
 
+class CreateUserSerializer(serializers.Serializer):
+    phone = serializers.IntegerField(required=True)
+    code = serializers.IntegerField(required=True)
+    password = serializers.CharField(required=True)
+    email = serializers.CharField(required=True)
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    middle_name = serializers.CharField(required=True)
+    
+    

@@ -462,7 +462,6 @@ class Update_pricat(APIView):
                 print(i)
                 print(e)
                 break
-        return Response(data, status=status.HTTP_200_OK)
 
 
 @permission_classes([IsAuthenticated])

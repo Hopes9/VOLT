@@ -1,18 +1,20 @@
 import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from VOLT.settings import COOKIE_MAX_AGE
 from accounts.models import User, Confirm_phone, Agreement
 from accounts.permissions import IsOwnerProfileOrReadOnly
 from accounts.phone import call_phone
-from accounts.serializers import userProfileSerializer, ChangePasswordSerializer
+from accounts.serializers import userProfileSerializer, ChangePasswordSerializer, CreateUserSerializer
 
 scheduler = BackgroundScheduler()
 scheduler.start()
@@ -131,3 +133,33 @@ class Reset_password_confirm(APIView):
                 return Response({"detail": "Код не верный"}, status=status.HTTP_404_NOT_FOUND)
         else:
             return Response({"detail": "Нужно передать phone, code, password"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CreateUser(APIView):
+    @swagger_auto_schema(responses={200: CreateUserSerializer(many=False)})
+    def post(self, request):
+
+        data = CreateUserSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        data = data.data
+        user = User.objects.filter(phone=data["phone"])
+        if not user.exists():
+
+            if int(data["code"]) in Confirm_phone.objects.filter(phone=data["phone"]).values_list("code",
+                                                                                                      flat=True):
+                user = User(phone=data["phone"], password=data["password"], email=data["email"],
+                            first_name=data["first_name"], last_name=data["last_name"],
+                            middle_name=data["middle_name"])
+                user.set_password(data["password"])
+                user.save()
+
+                Confirm_phone.objects.filter(phone=data["phone"]).delete()
+
+                refresh = RefreshToken.for_user(user)
+                response = Response({"refresh_token": str(refresh), "access_token": str(refresh.access_token)},
+                                    status=status.HTTP_200_OK)
+                return Response(response.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": "Вам нужно активировать телефон"}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({"detail": "Такой пользователь уже существует"}, status=status.HTTP_404_NOT_FOUND)

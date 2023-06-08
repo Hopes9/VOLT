@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import userProfileDetailView, Confirm_phone_api_view, Confirm_code_api_view, \
-    Reset_password, Reset_password_confirm
+    Reset_password, Reset_password_confirm, CreateUser
 
 urlpatterns = [
     path("", userProfileDetailView.as_view(), name="profile"),
@@ -10,4 +10,6 @@ urlpatterns = [
     path("reset_password", Reset_password.as_view()),
     path("reset_password_confirm", Confirm_code_api_view.as_view()),
     path("reset_password_finish", Reset_password_confirm.as_view()),
+    
+    path("createUser", CreateUser.as_view())
 ]

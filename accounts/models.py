@@ -32,7 +32,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     force_logout_date = models.DateTimeField(null=True, blank=True)
     rassilka = models.BooleanField(default=True, null=True, blank=True)
 
-
     objects = UserManager()
 
     USERNAME_FIELD = "phone"
@@ -79,7 +78,5 @@ class Agreement(TranslatableModel):
     title = models.TextField(_("Глава"))
     text = models.TextField(_("Текст"))
 
-
     def __str__(self):
         return self.title
-
