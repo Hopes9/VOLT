@@ -7,11 +7,10 @@ from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from VOLT.settings import COOKIE_MAX_AGE
-from accounts.models import User, Confirm_phone, Agreement
+from accounts.models import User, Confirm_phone
 from accounts.permissions import IsOwnerProfileOrReadOnly
 from accounts.phone import call_phone
 from accounts.serializers import userProfileSerializer, ChangePasswordSerializer, CreateUserSerializer
@@ -49,7 +48,8 @@ class userProfileDetailView(RetrieveUpdateDestroyAPIView):
 
 
 class Confirm_phone_api_view(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         phone = request.data.get("phone")
         if phone is not None:
             return generate_phone_code(phone=phone)
@@ -58,7 +58,8 @@ class Confirm_phone_api_view(APIView):
 
 
 class Confirm_code_api_view(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         row = request.data
         phone = row.get("phone")
         code = row.get("code")
@@ -105,7 +106,8 @@ def generate_phone_code(phone):
 
 
 class Reset_password(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         phone = request.data.get("phone")
         if phone is not None:
             return generate_phone_code(phone)
@@ -113,8 +115,9 @@ class Reset_password(APIView):
             return Response({"detail": "Нужно передать телефон"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class Reset_password_confirm(APIView):
-    def post(self, request):
+class ResetPasswordConfirm(APIView):
+    @staticmethod
+    def post(request):
         row = request.data
         phone = row.get("phone")
         password = row.get("password")
@@ -146,7 +149,7 @@ class CreateUser(APIView):
         if not user.exists():
 
             if int(data["code"]) in Confirm_phone.objects.filter(phone=data["phone"]).values_list("code",
-                                                                                                      flat=True):
+                                                                                                  flat=True):
                 user = User(phone=data["phone"], password=data["password"], email=data["email"],
                             first_name=data["first_name"], last_name=data["last_name"],
                             middle_name=data["middle_name"])

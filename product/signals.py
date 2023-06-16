@@ -1,21 +1,17 @@
-import random
-import string
+from datetime import datetime
+
+import pytz
+from apscheduler.triggers.cron import CronTrigger
+
+from VOLT import settings
+from VOLT.settings import BASE_DIR
+from product.ftp import getfile
+from service.main import clear_directory, start_prodat
 
 
 def update():
-
-    with open('staticfiles/prodat/pricat.xml', "wb+") as f:
-        for chunk in file.chunks():
-            f.write(chunk)
-
-    with open('staticfiles/prodat/pricat.xml', "rb") as f:
-        import mmap
-        mapped_file = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        xml_string = mapped_file.read()
-        mapped_file.close()
-
-    import xmltodict
-    xml_dict = xmltodict.parse(xml_string)
+    xml_dict = getfile("service.russvet.ru", "progresselektro", "B8aj17x4", "/pricat/",
+                       f"{BASE_DIR}/staticfiles/prodat/")
     data = xml_dict["Document"]["DocDetail"]
 
     count = 0
@@ -23,29 +19,48 @@ def update():
     for i in data:
         print(count)
         count += 1
-        QTY = i["QTY"].replace(".0000", "0")
-        SumQTY = i["SumQTY"].replace(".0000", "0")
+        qty = i["QTY"].replace(".0000", "0")
+        sum_qty = i["SumQTY"].replace(".0000", "0")
         if i["RetailPrice"] == 'Цена по запросу':
-            RetailPrice = None
+            retail_price = None
         else:
-            RetailPrice = float(i["RetailPrice"])
+            retail_price = float(i["RetailPrice"])
+        if i["Price2"] == 'Цена по запросу':
+            price2 = None
+        else:
+            price2 = float(i["Price2"])
 
+        if i["CustPrice"] == 'Цена по запросу':
+            cust_price = None
+        else:
+            cust_price = float(i["CustPrice"])
+        if i.get("SupOnhandDetail"):
+            partner_qty = float(i["SupOnhandDetail"]["PartnerQTY"])
+            partner_uom = i["SupOnhandDetail"]["PartnerUOM"]
+            last_upd_date = datetime.strptime(i["SupOnhandDetail"]["LastUpdDate"], "%Y%m%d")
+        else:
+            partner_qty = None
+            partner_uom = None
+            last_upd_date = None
         try:
             from product.models import Product
             Product.objects.filter(ItemID=i["ItemId"]).update(
                 AnalitCat=i["AnalitCat"],
-                QTY=QTY,
-                SumQTY=float(SumQTY),
-                Price2=float(i["Price2"]),
-                RetailPrice=RetailPrice,
+                QTY=qty,
+                SumQTY=float(sum_qty),
+                Price2=price2,
+                RetailPrice=retail_price,
                 RetailCurrency=i["RetailCurrency"],
-                CustPrice=float(i["CustPrice"]),
-                MRC=float(i["MRC"]),
+                CustPrice=cust_price,
+                PartnerQTY=partner_qty,
+                PartnerUOM=partner_uom,
+                LastUpdDate=last_upd_date
             )
         except Exception as e:
             print(i)
             print(e)
-            break
+
+    clear_directory()
 
 
 def start_scheduler(*args, **kwargs):
@@ -59,8 +74,15 @@ def start_scheduler(*args, **kwargs):
     scheduler.add_job(
         update,
         IntervalTrigger(days=1),
-        id="update",
-        name="Update",
+        id="pricat",
+        name="pricat",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        start_prodat,
+        CronTrigger(day_of_week='mon', timezone=pytz.timezone(settings.TIME_ZONE)),
+        id="prodat",
+        name="prodat",
         replace_existing=True,
     )
     scheduler.start()

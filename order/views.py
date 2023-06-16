@@ -3,7 +3,6 @@ import uuid
 
 import requests
 from django.db import connection
-from django.db.models import Q
 from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.decorators import permission_classes
@@ -15,17 +14,16 @@ from rest_framework.views import APIView
 from VOLT import settings
 from VOLT.settings import Token_cdek
 from basket.models import Basket
-from product.models import Product
+from order.models import Order, Order_list, Status, Delivery
+from product.func import get_secret_key_
 from sberbank.models import Payment
 from sberbank.service import BankService
-from order.func import send_my_email_create
-from order.models import Order, Order_list, Status, Delivery
-from product.func import dict_fetch_all, get_secret_key_
 
 
 @permission_classes([IsAuthenticated])
 class Post_order(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         basket = Basket.objects.filter(id_user_id=request.user.id, buy_now=True)\
             .values("id",
                     "id_user",
@@ -103,7 +101,8 @@ def chek_uuid(uuid_):
 
 @permission_classes([IsAuthenticated])
 class My_orders(APIView):
-    def get(self, request, lang):
+    @staticmethod
+    def get(request, lang):
         if request.GET.get("bank_id") is not None or request.GET.get("id") is not None:
             if request.GET.get('id') is None:
                 order_id = ""
@@ -198,7 +197,8 @@ class My_orders(APIView):
 
 @permission_classes([IsAuthenticated])
 class Create_pay(APIView):
-    def get(self, request):
+    @staticmethod
+    def get(request):
         if request.GET.get('order') is None:
             return Response(status=status.HTTP_204_NO_CONTENT)
         order_id = request.GET.get('order')
@@ -230,7 +230,8 @@ class Create_pay(APIView):
 
 
 class Cdek_order(APIView):
-    def post(self, request):
+    @staticmethod
+    def post(request):
         try:
             if request.data.get("city") is None:
                 return Response("Нет города city")

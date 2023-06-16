@@ -1,10 +1,15 @@
 import json
-import json
 import math
 import mmap
+import os
+from datetime import datetime
+from multiprocessing import Pool
+from threading import Thread
 
+import django
 import xmltodict
-from django.db.models import Q, Max, Min, Count, Sum, Subquery, OuterRef
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Max, Min, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Length
 from rest_framework import status
 from rest_framework.decorators import permission_classes
@@ -13,17 +18,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from VOLT.settings import BASE_DIR
 from order.models import Order_list
-from product.func import update_catalog, chekListInt
-from product.models import Product, Analog, Brand, CatalogBrochure, CertificateInfo, Country, FeatureETIMDetails, \
-    FeatureETIMDetails_Data, Product_image, Passport, RelatedProd, RsCatalog, Product_video, Series
-from product.serializers import ProductSerializer, CertificateInfoSerializer, Product_imageSerializer, \
-    Product_videoSerializer, RelatedProdSerializer, CountrySerializer, \
-    RsCatalogSerializer, CatalogBrochureSerializer
+from service.createFeature import feature_etim_details_data_objects
+from service.createProduct import update_or_create_product
+from service.main import between_callback
+from product.ftp import getfile
+from product.func import chek_list_int, update_catalog
+from product.models import Brand, CatalogBrochure, CertificateInfo, Country, FeatureETIMDetails, \
+    FeatureETIMDetails_Data, Product, Product_image, Product_video, RelatedProd, RsCatalog, Series
+from product.serializers import CatalogBrochureSerializer, CertificateInfoSerializer, CountrySerializer, \
+    ProductSerializer, Product_imageSerializer, Product_videoSerializer, RelatedProdSerializer, RsCatalogSerializer
 
 
-class Product_(APIView):
-    def get(self, request):
+class ProductMain(APIView):
+    @staticmethod
+    def get(request):
         offset = 0
         limit = 30
         if request.data.get("offset") is not None:
@@ -37,8 +47,9 @@ class Product_(APIView):
         return Response(serializer.data)
 
 
-class Search_product(APIView):
-    def post(self, request):
+class SearchProduct(APIView):
+    @staticmethod
+    def post(request):
         if request.data.get("find") is not None:
             st = request.data.get("find")
         else:
@@ -64,49 +75,51 @@ class FavesProduct(APIView):
         return Response(products)
 
 
-class catalog(APIView):
-    def get(self, request):
+class Catalog(APIView):
+    @staticmethod
+    def get(request):
         with open("catalog.json", "r", encoding="UTF-8") as f:
             data = f.read()
         data = json.loads(data)
         return Response(data, status=status.HTTP_200_OK)
 
 
-class getFilters(APIView):
-    def post(self, request):
-        Level2 = request.data.get("Level2")
-        Level3 = request.data.get("Level3")
-        Level4 = request.data.get("Level4")
+class GetFilters(APIView):
+    @staticmethod
+    def post(request):
+        level2 = request.data.get("Level2")
+        level3 = request.data.get("Level3")
+        level4 = request.data.get("Level4")
         price_min = request.data.get("price_min")
         price_max = request.data.get("price_max")
         brand = request.data.get("brand")
         series = request.data.get("series")
         feature = request.data.get("feature")
 
-        rsCatalog = RsCatalog.objects.all()
-        if Level2:
-            rsCatalog = rsCatalog.filter(Level2ID=Level2)
-        if Level3:
-            rsCatalog = rsCatalog.filter(Level3ID=Level3)
-        if Level4:
-            rsCatalog = rsCatalog.filter(Level4ID=Level4)
-        if not (Level4 or Level3 or Level2):
+        rs_catalog = RsCatalog.objects.all()
+        if level2:
+            rs_catalog = rs_catalog.filter(Level2ID=level2)
+        if level3:
+            rs_catalog = rs_catalog.filter(Level3ID=level3)
+        if level4:
+            rs_catalog = rs_catalog.filter(Level4ID=level4)
+        if not (level4 or level3 or level2):
             return Response({"Error": "GET Level"})
 
-        row_ = Product.objects.filter(id__in=rsCatalog.values_list("product_catalog", flat=True))
+        row_ = Product.objects.filter(id__in=rs_catalog.values_list("product_catalog", flat=True))
         if price_min:
             row_ = row_.filter(RetailPrice__gte=price_min)
         if price_max:
             row_ = row_.filter(RetailPrice__lte=price_max)
 
         if brand:
-            k = chekListInt(brand)
+            k = chek_list_int(brand)
             if len(k) != 0:
                 row_ = row_.filter(brand__in=k)
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
         if series:
-            k = chekListInt(series)
+            k = chek_list_int(series)
             if len(k) != 0:
                 row_ = row_.filter(Series__in=k)
             else:
@@ -121,17 +134,17 @@ class getFilters(APIView):
 
                 datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=data.values("id"))
                 for h in feature:
-                    datas = datas.filter(featureValue__in=h["data"])
+                    datas = datas.filter(featureValue__in=h["service"])
                 row_ = row_.filter(id__in=datas.values("featureETIMDetails_product_id"))
             except Exception as e:
-                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
+                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "service": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
-        filterM = FeatureETIMDetails.objects.filter(featureetimdetails_data__featureETIMDetails_product__id__in=
-                                                    row_.values_list("id", flat=True)) \
+        filter_m = FeatureETIMDetails.objects.filter(featureetimdetails_data__featureETIMDetails_product__id__in=
+                                                     row_.values_list("id", flat=True)) \
             .annotate(count=Count("featureName")).order_by("-count")
-        if filterM.count() > 20:
-            filterM = filterM[:20]
-        filters["filters"] = filterM.values()
+        if filter_m.count() > 20:
+            filter_m = filter_m[:20]
+        filters["filters"] = filter_m.values()
 
         filters["others"] = [{"name": "Brands",
                               "values": Brand.objects.filter(id__in=row_.values_list("brand", flat=True)).values(
@@ -142,28 +155,29 @@ class getFilters(APIView):
         return Response(filters)
 
 
-class getFiltersInt(APIView):
-    def post(self, request, feature):
-        Level2 = request.data.get("Level2")
-        Level3 = request.data.get("Level3")
-        Level4 = request.data.get("Level4")
+class GetFiltersInt(APIView):
+    @staticmethod
+    def post(request, feature):
+        level2 = request.data.get("Level2")
+        level3 = request.data.get("Level3")
+        level4 = request.data.get("Level4")
         price_min = request.data.get("price_min")
         price_max = request.data.get("price_max")
         brand = request.data.get("brand")
         series = request.data.get("series")
-        featureData = request.data.get("feature")
+        feature_data = request.data.get("feature")
 
-        rsCatalog = RsCatalog.objects.all()
-        if Level2:
-            rsCatalog = rsCatalog.filter(Level2ID=Level2)
-        if Level3:
-            rsCatalog = rsCatalog.filter(Level3ID=Level3)
-        if Level4:
-            rsCatalog = rsCatalog.filter(Level4ID=Level4)
-        if not (Level4 or Level3 or Level2):
+        rs_catalog = RsCatalog.objects.all()
+        if level2:
+            rs_catalog = rs_catalog.filter(Level2ID=level2)
+        if level3:
+            rs_catalog = rs_catalog.filter(Level3ID=level3)
+        if level4:
+            rs_catalog = rs_catalog.filter(Level4ID=level4)
+        if not (level4 or level3 or level2):
             return Response({"Error": "GET Level"})
 
-        row_ = Product.objects.filter(id__in=rsCatalog.values_list("product_catalog", flat=True))
+        row_ = Product.objects.filter(id__in=rs_catalog.values_list("product_catalog", flat=True))
 
         if price_min:
             row_ = row_.filter(RetailPrice__gte=price_min)
@@ -171,93 +185,94 @@ class getFiltersInt(APIView):
             row_ = row_.filter(RetailPrice__lte=price_max)
 
         if brand:
-            k = chekListInt(brand)
+            k = chek_list_int(brand)
             if len(k) != 0:
                 row_ = row_.filter(brand__in=k)
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
         if series:
-            k = chekListInt(series)
+            k = chek_list_int(series)
             if len(k) != 0:
                 row_ = row_.filter(Series__in=k)
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
 
         data = get_object_or_404(FeatureETIMDetails, id=feature)
-        dataF = list(FeatureETIMDetails_Data.objects.filter(
-            featureETIMDetails_product__id__in=row_.values_list("id", flat=True), featureETIMDetails_id=data.id). \
-            values("featureValue"). \
-            annotate(count=Count('featureValue')). \
-            order_by('featureValue', Length("featureValue"), "count"). \
-            values('featureValue', 'count'))
+        data_f = list(FeatureETIMDetails_Data.objects.filter(
+            featureETIMDetails_product__id__in=row_.values_list("id", flat=True), featureETIMDetails_id=data.id).
+                      values("featureValue").
+                      annotate(count=Count('featureValue')).
+                      order_by('featureValue', Length("featureValue"), "count").
+                      values('featureValue', 'count'))
 
-        if featureData:
+        if feature_data:
             try:
-                featureData = json.loads(featureData)
-                list_feature_id = [h["feature_id"] for h in featureData]
-                dataG = FeatureETIMDetails.objects.filter(id__in=list_feature_id)
-    
-                datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=dataG.values("id"))
-                for h in featureData:
-                    datas = datas.filter(featureValue__in=h["data"])
-    
+                feature_data = json.loads(feature_data)
+                list_feature_id = [h["feature_id"] for h in feature_data]
+                data_g = FeatureETIMDetails.objects.filter(id__in=list_feature_id)
+
+                datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=data_g.values("id"))
+                for h in feature_data:
+                    datas = datas.filter(featureValue__in=h["service"])
+
                 datas = datas.values("featureValue"). \
                     order_by('featureValue', Length("featureValue")). \
                     values_list('featureValue', flat=True)
-    
-                for i in dataF:
+
+                for i in data_f:
                     if i["featureValue"] not in datas:
                         i["disable"] = True
 
             except Exception as e:
-                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
+                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "service": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
         return Response(
             {
                 "feature_id": data.id,
                 "feature": data.featureName,
-                "data": dataF,
+                "service": data_f,
             }
         )
 
 
-class catalog_values(APIView):
-    def post(self, request, limit, page):
-        Level2 = request.data.get("Level2")
-        Level3 = request.data.get("Level3")
-        Level4 = request.data.get("Level4")
+class CatalogValues(APIView):
+    @staticmethod
+    def post(request, limit, page):
+        level2 = request.data.get("Level2")
+        level3 = request.data.get("Level3")
+        level4 = request.data.get("Level4")
         price_min = request.data.get("price_min")
         price_max = request.data.get("price_max")
         sort = request.data.get("sort")
         brand = request.data.get("brand")
         series = request.data.get("series")
         feature = request.data.get("feature")
-        updateFilters = request.data.get("updateFilters", True)
+        update_filters = request.data.get("updateFilters", True)
 
-        rsCatalog = RsCatalog.objects.all()
-        if Level2:
-            rsCatalog = rsCatalog.filter(Level2ID=Level2)
-        if Level3:
-            rsCatalog = rsCatalog.filter(Level3ID=Level3)
-        if Level4:
-            rsCatalog = rsCatalog.filter(Level4ID=Level4)
-        if not (Level4 or Level3 or Level2):
+        rs_catalog = RsCatalog.objects.all()
+        if level2:
+            rs_catalog = rs_catalog.filter(Level2ID=level2)
+        if level3:
+            rs_catalog = rs_catalog.filter(Level3ID=level3)
+        if level4:
+            rs_catalog = rs_catalog.filter(Level4ID=level4)
+        if not (level4 or level3 or level2):
             return Response({"Error": "GET Level"})
 
-        row_ = Product.objects.filter(id__in=rsCatalog.values_list("product_catalog", flat=True))
+        row_ = Product.objects.filter(id__in=rs_catalog.values_list("product_catalog", flat=True))
         if price_min:
             row_ = row_.filter(RetailPrice__gte=price_min)
         if price_max:
             row_ = row_.filter(RetailPrice__lte=price_max)
 
         if brand:
-            k = chekListInt(brand)
+            k = chek_list_int(brand)
             if len(k) != 0:
                 row_ = row_.filter(brand__in=k)
             else:
                 return Response(status.HTTP_204_NO_CONTENT)
         if series:
-            k = chekListInt(series)
+            k = chek_list_int(series)
             if len(k) != 0:
                 row_ = row_.filter(Series__in=k)
             else:
@@ -270,10 +285,10 @@ class catalog_values(APIView):
 
                 datas = FeatureETIMDetails_Data.objects.filter(featureETIMDetails__in=data.values("id"))
                 for h in feature:
-                    datas = datas.filter(featureValue__in=h["data"])
+                    datas = datas.filter(featureValue__in=h["service"])
                 row_ = row_.filter(id__in=datas.values("featureETIMDetails_product_id"))
             except Exception as e:
-                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "data": str(e)},
+                return Response({"ERROR": "Feature Example: {'1567': ['300']}", "service": str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
         if sort:
             if sort in ["descending", "ascending", "popularity", "descendingGroup", "ascendingGroup"]:
@@ -300,7 +315,7 @@ class catalog_values(APIView):
 
         filter_data = []
         filters = {"others": []}
-        if updateFilters == "1":
+        if update_filters == "1":
 
             feature_data = FeatureETIMDetails_Data.objects.filter(
                 featureETIMDetails_product__id__in=row_.values_list("id"))
@@ -322,18 +337,18 @@ class catalog_values(APIView):
             )
 
             id_detail = -1
-            countFeature = 0
+            count_feature = 0
             for i in result:
                 if i["featureETIMDetails_id"] != id_detail:
                     if id_detail != -1:
                         h = filters.get(id_detail)
-                        h["Count"] = countFeature
-                        countFeature = 0
+                        h["Count"] = count_feature
+                        count_feature = 0
 
                     id_detail = i["featureETIMDetails_id"]
                     for b, d in enumerate(feature):
                         if d['id'] == i["featureETIMDetails_id"]:
-                            countFeature += i["count"]
+                            count_feature += i["count"]
                             filters[id_detail] = {
                                 "featureETIMDetails_id": i["featureETIMDetails_id"],
                                 "featureCode": d["featureCode"],
@@ -344,7 +359,7 @@ class catalog_values(APIView):
                             }
                             break
                 elif i["featureETIMDetails_id"] == id_detail:
-                    countFeature += i["count"]
+                    count_feature += i["count"]
                     h = filters.get(id_detail)
                     h["featureValue"].append(
                         {"featureValue": i["featureValue"], "count": i["count"]}
@@ -356,21 +371,22 @@ class catalog_values(APIView):
             "count_pages": math.ceil(row_count / limit),
             "price_min": row_.aggregate(Min('RetailPrice'))["RetailPrice__min"],
             "price_max": row_.aggregate(Max('RetailPrice'))["RetailPrice__max"],
-            "data": row_[start_index:end_index].values("id", "is_hit", "is_new", "discount", "Dimension", "EAN",
-                                                       "GuaranteePeriod",
-                                                       "image", "ItemID", "ItemsPerUnit", "Multiplicity",
-                                                       "ParentProdCode", "ParentProdGroup", "ProductCode",
-                                                       "ProductDescription", "ProductGroup", "ProductName",
-                                                       "SenderPrdCode", "UOM",
-                                                       "Weight", "brand", "brand__name", "Series", "Series__name",
-                                                       "AnalitCat", "Price2", "RetailPrice", "RetailCurrency", ),
-            "others": filters["others"] if updateFilters else [],
-            "filters": filter_data if updateFilters else [],
+            "service": row_[start_index:end_index].values("id", "is_hit", "is_new", "discount", "Dimension", "EAN",
+                                                          "GuaranteePeriod",
+                                                          "image", "ItemID", "ItemsPerUnit", "Multiplicity",
+                                                          "ParentProdCode", "ParentProdGroup", "ProductCode",
+                                                          "ProductDescription", "ProductGroup", "ProductName",
+                                                          "SenderPrdCode", "UOM",
+                                                          "Weight", "brand", "brand__name", "Series", "Series__name",
+                                                          "AnalitCat", "Price2", "RetailPrice", "RetailCurrency", ),
+            "others": filters["others"] if update_filters else [],
+            "filters": filter_data if update_filters else [],
         })
 
 
-class Open_product(APIView):
-    def get(self, request, pk):
+class OpenProduct(APIView):
+    @staticmethod
+    def get(request, pk):
         product = get_object_or_404(Product, id=pk)
         country = Country.objects.filter(country_product__id=pk)
         feature_data = FeatureETIMDetails_Data.objects.filter(featureETIMDetails_product__id=pk)
@@ -415,301 +431,59 @@ class Open_product(APIView):
         return Response(data)
 
 
-@permission_classes([IsAuthenticated])
-class Update_pricat(APIView):
-    def post(self, request):
-        file = request.FILES.get("file")
-
-        if not file:
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        with open('staticfiles/prodat/pricat.xml', "wb+") as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-
-        with open('staticfiles/prodat/pricat.xml', "rb") as f:
-            mapped_file = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            xml_string = mapped_file.read()
-            mapped_file.close()
-
-        xml_dict = xmltodict.parse(xml_string)
+class UpdatePricat(APIView):
+    @staticmethod
+    def post(request):
+        print("start")
+        xml_dict = getfile("service.russvet.ru", "progresselektro", "B8aj17x4", "/pricat/",
+                           f"{BASE_DIR}/staticfiles/prodat/")
         data = xml_dict["Document"]["DocDetail"]
+        from django.db.models import F
 
-        count = 0
+        updated_products = []
 
         for i in data:
-            print(count)
-            count += 1
-            QTY = i["QTY"].replace(".0000", "0")
-            SumQTY = i["SumQTY"].replace(".0000", "0")
-            if i["RetailPrice"] == 'Цена по запросу':
-                RetailPrice = None
-            else:
-                RetailPrice = float(i["RetailPrice"])
+            qty = i["QTY"].replace(".0000", "0")
+            sum_qty = i["SumQTY"].replace(".0000", "0")
 
-            try:
-                Product.objects.filter(ItemID=i["ItemId"]).update(
-                    AnalitCat=i["AnalitCat"],
-                    QTY=QTY,
-                    SumQTY=float(SumQTY),
-                    Price2=float(i["Price2"]),
-                    RetailPrice=RetailPrice,
-                    RetailCurrency=i["RetailCurrency"],
-                    CustPrice=float(i["CustPrice"]),
-                    MRC=float(i["MRC"]),
-                )
-            except Exception as e:
-                print(i)
-                print(e)
-                break
+            if i["RetailPrice"] == 'Цена по запросу':
+                retail_price = None
+            else:
+                retail_price = float(i["RetailPrice"])
+
+            product_kwargs = {
+                'AnalitCat': i["AnalitCat"],
+                'QTY': qty,
+                'SumQTY': float(sum_qty),
+                'Price2': float(i["Price2"]),
+                'RetailPrice': retail_price,
+                'RetailCurrency': i["RetailCurrency"],
+                'CustPrice': float(i["CustPrice"]),
+            }
+
+            if i["SupOnhandDetail"] is not None:
+                dat = datetime.strptime(str(i["SupOnhandDetail"]["LastUpdDate"]), "%Y%m%d")
+                product_kwargs.update({
+                    'PartnerQTY': float(i["SupOnhandDetail"]["PartnerQTY"]),
+                    'PartnerUOM': i["SupOnhandDetail"]["PartnerUOM"],
+                    'LastUpdDate': dat,
+                })
+            product = Product(id=i["ItemId"], **product_kwargs)
+            product.QTY = F('QTY')
+            product.SumQTY = F('SumQTY')
+
+            updated_products.append(product)
+        Product.objects.bulk_update(updated_products,
+                                    fields=['AnalitCat', 'QTY', 'SumQTY', 'Price2', 'RetailPrice', 'RetailCurrency',
+                                            'CustPrice', 'PartnerQTY', 'PartnerUOM', 'LastUpdDate'])
+        return Response("GetAll")
 
 
 @permission_classes([IsAuthenticated])
 class UpdateCatalog(APIView):
-    def get(self, request):
+    @staticmethod
+    def get(request):
         data = update_catalog()
         with open("catalog.json", "w", encoding='utf-8') as f:
             json.dump(data, f, indent=4)
         return Response(data, status=status.HTTP_200_OK)
-
-
-@permission_classes([IsAuthenticated])
-class Update_prodat(APIView):
-    def post(self, request):
-        file = request.FILES.get("file")
-
-        if not file:
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        with open('staticfiles/prodat/prodat.xml', "wb+") as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-
-        with open('staticfiles/prodat/prodat.xml', "rb") as f:
-            mapped_file = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-            xml_string = mapped_file.read()
-            mapped_file.close()
-
-        xml_dict = xmltodict.parse(xml_string)
-        data = xml_dict["Document"]["DocDetail"]
-        print(0, len(data))
-        count = 0
-        try:
-            for i in data:
-                print(count)
-                try:
-                    if i["EAN"] is not None:
-                        EAN = i["EAN"]["Value"]
-                    else:
-                        EAN = None
-
-                    Main_product, created = Product.objects.update_or_create(ItemID=i["ItemID"], defaults={
-                        "Dimension": i["Dimension"],
-                        "EAN": EAN,
-                        "GuaranteePeriod": i["GuaranteePeriod"],
-                        "ItemsPerUnit": i["ItemsPerUnit"],
-                        "Multiplicity": i["Multiplicity"],
-                        "ParentProdCode": i["ParentProdCode"],
-                        "ParentProdGroup": i["ParentProdGroup"],
-                        "ProductCode": i["ProductCode"],
-                        "ProductDescription": i["ProductDescription"],
-                        "ProductGroup": i["ProductGroup"],
-                        "ProductName": i["ProductName"],
-                        "SenderPrdCode": i["SenderPrdCode"],
-                        "UOM": i["UOM"],
-                        "VendorProdNum": i["VendorProdNum"],
-                        "Weight": i["Weight"]["Value"]
-                    }
-                                                                             )
-                    Main_product.save()
-                    MId = Main_product.id
-                except Exception as e:
-                    print(i)
-                    print(e, "1")
-                    break
-                try:
-                    if i["Analog"] is not None:
-                        if type(i["Analog"]) is dict:
-                            Analog_main, created = Analog.objects.update_or_create(analog_product_id=MId,
-                                                                                   data=i["Analog"]["ItemCode"])
-                            Analog_main.save()
-                        else:
-                            for g in i["Analog"]["ItemCode"]:
-                                Analog_main, created = Analog.objects.update_or_create(analog_product_id=MId,
-                                                                                       data=g)
-                                Analog_main.save()
-
-                    Brand_main, created = Brand.objects.get_or_create(name=i["Brand"])
-                    Brand_main.save()
-                    Series_main, created = Series.objects.get_or_create(name=i["Series"])
-                    Series_main.save()
-                    Main_product.Series_id = Series_main.id
-                    Main_product.brand_id = Brand_main.id
-                    Main_product.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "2")
-                    break
-                try:
-                    if i["CatalogBrochure"] is not None:
-                        for h in i["CatalogBrochure"]["Value"]:
-                            CatalogBrochure_main, created = CatalogBrochure.objects.update_or_create(
-                                brochure_product_id=MId, data=h)
-                            CatalogBrochure_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "3")
-                    break
-                try:
-                    if i["CertificateInfo"] is not None:
-                        if type(i["CertificateInfo"]["Certificate"]) is dict:
-                            CertificateInfo_main, created = CertificateInfo.objects.update_or_create(
-                                certificate_product_id=MId,
-                                data=i["CertificateInfo"]["Certificate"]["CertificateURL"])
-                            CertificateInfo_main.save()
-                        else:
-                            for j in i["CertificateInfo"]["Certificate"]:
-                                CertificateInfo_main, created = CertificateInfo.objects.update_or_create(
-                                    certificate_product_id=MId, data=j["CertificateURL"])
-                                CertificateInfo_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "4")
-                    break
-                try:
-                    if i["Country"] is not None:
-                        if type(i["Country"]) is dict:
-                            Country_main, created = Country.objects.update_or_create(country_product_id=MId,
-                                                                                     data=i["Country"]["Value"])
-                            Country_main.save()
-                        else:
-                            for v in i["Country"]:
-                                Country_main, created = Country.objects.update_or_create(country_product_id=MId,
-                                                                                         data=v["Value"])
-                                Country_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "5")
-                    break
-                try:
-
-                    if i["FeatureETIMDetails"] is not None:
-                        if type(i["FeatureETIMDetails"]["FeatureETIM"]) is not dict:
-                            for k in i["FeatureETIMDetails"]["FeatureETIM"]:
-                                if k["FeatureValue"] is not None:
-                                    FeatureETIMDetails_main, created = FeatureETIMDetails.objects.update_or_create(
-                                        featureCode=k["FeatureCode"],
-                                        defaults=dict(
-                                            featureName=k["FeatureName"],
-                                            featureUom=k["FeatureUom"]
-                                        )
-                                    )
-                                    FeatureETIMDetails_main.save()
-                                    FeatureETIMDetails_Data_main, created = FeatureETIMDetails_Data.objects.update_or_create(
-                                        featureETIMDetails_product_id=MId,
-                                        featureValue=k["FeatureValue"],
-                                        featureETIMDetails_id=FeatureETIMDetails_main.id
-                                    )
-                                    FeatureETIMDetails_Data_main.save()
-                        else:
-                            if i["FeatureETIMDetails"]["FeatureETIM"]["FeatureValue"] is not None:
-                                FeatureETIMDetails_main, created = FeatureETIMDetails.objects.update_or_create(
-                                    featureCode=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureCode"],
-                                    defaults=dict(
-                                        featureName=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureName"],
-                                        featureUom=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureUom"]
-                                    ),
-                                )
-                                FeatureETIMDetails_main.save()
-                                FeatureETIMDetails_Data_main, created = FeatureETIMDetails_Data.objects.update_or_create(
-                                    featureETIMDetails_product_id=MId,
-                                    featureValue=i["FeatureETIMDetails"]["FeatureETIM"]["FeatureValue"],
-                                    featureETIMDetails_id=FeatureETIMDetails_main.id)
-                                FeatureETIMDetails_Data_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "6")
-                    break
-                try:
-                    if i["Image"] is not None:
-                        if type(i["Image"]["Value"]) is list:
-                            Main_product.image = i["Image"]["Value"][0]
-                            Main_product.save()
-                            for v in i["Image"]["Value"][1:]:
-                                Product_image_main, created = Product_image.objects.update_or_create(
-                                    image_product_id=MId, imageURL=v)
-                                Product_image_main.save()
-                        else:
-                            Main_product.image = i["Image"]["Value"]
-                            Main_product.save()
-
-                except Exception as e:
-                    print(i)
-                    print(e, "7")
-                    break
-                try:
-                    if i["Passport"] is not None:
-                        if type(i["Passport"]) is dict:
-                            Passport_main, created = Passport.objects.update_or_create(passport_product_id=MId,
-                                                                                       data=i["Passport"]["Value"])
-                            Passport_main.save()
-                        else:
-                            for v in i["Passport"]:
-                                Passport_main, created = Passport.objects.update_or_create(passport_product_id=MId,
-                                                                                           data=v["Value"])
-                                Passport_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "8")
-                    break
-                try:
-                    if i["RelatedProd"] is not None:
-                        for u in i["RelatedProd"]["ItemCode"]:
-                            RelatedProd_main, created = RelatedProd.objects.update_or_create(relatedProd_product_id=MId,
-                                                                                             data=u)
-                            RelatedProd_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "9")
-                    break
-                try:
-                    if i["RsCatalog"] is not None:
-                        RsCatalog_main, created = RsCatalog.objects.update_or_create(product_catalog_id=MId,
-                                                                                     Level2ID=i["RsCatalog"][
-                                                                                         "Level2ID"],
-                                                                                     Level2Name=i["RsCatalog"][
-                                                                                         "Level2Name"],
-                                                                                     Level3ID=i["RsCatalog"][
-                                                                                         "Level3ID"],
-                                                                                     Level3Name=i["RsCatalog"][
-                                                                                         "Level3Name"],
-                                                                                     Level4ID=i["RsCatalog"][
-                                                                                         "Level4ID"],
-                                                                                     Level4Name=i["RsCatalog"][
-                                                                                         "Level4Name"], )
-                        RsCatalog_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "10")
-                    break
-                try:
-                    if i["Video"] is not None:
-                        if type(i["Video"]["Value"]) is list:
-                            for v in i["Video"]["Value"]:
-                                Product_video_main, created = Product_video.objects.update_or_create(
-                                    video_product_id=MId, videoURL=v)
-                                Product_video_main.save()
-                        else:
-                            Product_video_main, created = Product_video.objects.update_or_create(video_product_id=MId,
-                                                                                                 videoURL=i["Video"][
-                                                                                                     "Value"])
-                            Product_video_main.save()
-                except Exception as e:
-                    print(i)
-                    print(e, "11")
-                    break
-                count += 1
-        except Exception as e:
-            print(e, "12")
-        ##################
-        return Response("")

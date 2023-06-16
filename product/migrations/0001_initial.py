@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
             name='RelatedProd',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(verbose_name='ID сопутствующего товаров')),
+                ('service', models.TextField(verbose_name='ID сопутствующего товаров')),
                 ('relatedProd_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),
@@ -109,7 +109,7 @@ class Migration(migrations.Migration):
             name='Passport',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(verbose_name='Passport')),
+                ('service', models.TextField(verbose_name='Passport')),
                 ('passport_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),
@@ -133,7 +133,7 @@ class Migration(migrations.Migration):
             name='Country',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(verbose_name='страна производитель')),
+                ('service', models.TextField(verbose_name='страна производитель')),
                 ('country_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),
@@ -141,7 +141,7 @@ class Migration(migrations.Migration):
             name='CertificateInfo',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(blank=True, verbose_name='URL сертификата сертификата')),
+                ('service', models.TextField(blank=True, verbose_name='URL сертификата сертификата')),
                 ('certificate_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),
@@ -149,7 +149,7 @@ class Migration(migrations.Migration):
             name='Analog',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(verbose_name='Код замены позиции в кодах Русского Света')),
+                ('service', models.TextField(verbose_name='Код замены позиции в кодах Русского Света')),
                 ('analog_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),

@@ -101,7 +101,7 @@ class BankService(object):
         response = self.execute_request(data, method, payment)
 
         if response.get('success'):
-            payment.bank_id = response.get('data').get('orderId')
+            payment.bank_id = response.get('service').get('orderId')
             if 'orderStatus' in response:
                 payment.details.update({"pan": response['orderStatus']['cardAuthInfo']['pan']})
         else:
@@ -184,7 +184,7 @@ class BankService(object):
     def check_status(self, payment_uid):
         try:
             payment = Payment.objects.get(uid=payment_uid)
-            ord = Order.objects.get(id=payment.order.id)
+            order = Order.objects.get(id=payment.order.id)
         except Payment.DoesNotExist or MultipleObjectsReturned:
             raise PaymentNotFoundException()
 
@@ -193,20 +193,20 @@ class BankService(object):
 
         if response.get('orderStatus') == 2:
             if payment.bank_id is not None:
-                ord.status = order_status.SUCCEEDED
-                ord.pay = True
+                order.status = order_status.SUCCEEDED
+                order.pay = True
             payment.status = Status.SUCCEEDED
             payment.details.update({"pan": response['cardAuthInfo']['pan']})
         elif response.get('orderStatus') in [3, 6]:
             if payment.bank_id is not None:
-                ord.status = order_status.FAILED
+                order.status = order_status.FAILED
             payment.status = Status.FAILED
         elif response.get('orderStatus') == 4:
             if payment.bank_id is not None:
-                ord.status = order_status.REFUNDED
+                order.status = order_status.REFUNDED
             payment.status = Status.REFUNDED
         if payment.bank_id is not None:
-            ord.save(update_fields=['status', 'pay'])
+            order.save(update_fields=['status', 'pay'])
         payment.save(update_fields=['status', 'details'])
         return payment
 

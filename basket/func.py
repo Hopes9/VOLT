@@ -13,5 +13,5 @@ def sumPrice(basket_items):
     response = {"total_price": total_price, }
     if total_discount > 0:
         response['total_discount'] = round(total_discount, 1)
-    response["data"] = data
+    response["service"] = data
     return response
