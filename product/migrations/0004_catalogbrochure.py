@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             name='CatalogBrochure',
             fields=[
                 ('id', models.AutoField(db_index=True, editable=False, primary_key=True, serialize=False, unique=True)),
-                ('data', models.TextField(verbose_name='ссылка')),
+                ('service', models.TextField(verbose_name='ссылка')),
                 ('brochure_product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='product.product')),
             ],
         ),

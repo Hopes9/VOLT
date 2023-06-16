@@ -1,6 +1,5 @@
 from django.http import FileResponse
 from rest_framework import status
-from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,23 +13,26 @@ from VOLT.settings import COOKIE_MAX_AGE
 from accounts.models import User
 from product.models import Product
 
+
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    @staticmethod
+    def post(request):
         try:
             refresh_token = request.data["refresh_token"]
             token = RefreshToken(refresh_token)
             token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
+        except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutAllView(APIView):
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    @staticmethod
+    def post(request):
         tokens = OutstandingToken.objects.filter(user_id=request.user.id)
         for token in tokens:
             t, _ = BlacklistedToken.objects.get_or_create(token=token)
@@ -39,7 +41,8 @@ class LogoutAllView(APIView):
 
 
 class docxView(APIView):
-    def get(self, request):
+    @staticmethod
+    def get(request):
         return FileResponse(
             open("staticfiles/docx/Политика_конфиденциальности_+_Согласие_на_обработку_ПД_PollHub.docx", "rb"))
 
@@ -74,11 +77,14 @@ class CookieTokenRefreshView(TokenRefreshView):
 
 
 class All_product(APIView):
-    def get(self, request):
+    @staticmethod
+    def get(request):
         return Response(Product.objects.all().order_by("id").values("id"))
 
+
 class Rassilka_off(APIView):
-    def get(self, request):
+    @staticmethod
+    def get(request):
         use = User.objects.get(id=request.GET.get("id"))
         use.rassilka = False
         use.save()
