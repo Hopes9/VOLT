@@ -13,7 +13,7 @@ class OrderAdmin(admin.ModelAdmin):
         return obj.product.product_id.name
 
 
-class Product_Admin_inline_order(admin.TabularInline):
+class Product_AdminInline_order(admin.TabularInline):
     model = Order_list
 
     def product_name(self, obj):
@@ -85,7 +85,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_editable = ['status', 'sum', 'count_product']
     list_per_page = 20
     ordering = ("-data_order",)
-    inlines = [Product_Admin_inline_order]
+    inlines = [Product_AdminInline_order]
 
     def save_model(self, request, obj, form, change):
         sd = Order.objects.get(id=obj.id)
@@ -93,4 +93,4 @@ class OrderAdmin(admin.ModelAdmin):
             if obj.status == 1:
                 if sd.pay_online:
                     send_my_email_pay(lang='ru', order=obj)
-        super(OrderAdmin, self).save_model(request, obj, form, change)
+        super(OrderAdmin).save_model(request, obj, form, change)

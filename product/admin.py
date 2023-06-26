@@ -7,20 +7,21 @@ from .models import Product, Favorite_product, Brand, Passport, Country, Analog,
 
 
 @admin.register(Brand)
-class Brand_Admin(admin.ModelAdmin):
+class BrandAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     list_display = ["id", "name"]
 
+
 @admin.register(Series)
-class Series_Admin(admin.ModelAdmin):
+class SeriesAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     list_display = ["id", "name"]
 
 
 @admin.register(Analog)
-class Analog_Admin(admin.ModelAdmin):
+class AnalogAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'analog_product')
-    list_display = ["id", "analog_product", 'data']
+    list_display = ["id", "analog_product"]
 
 
 admin.site.register(Passport, admin.ModelAdmin)
@@ -42,6 +43,7 @@ class RsCatalogAdmin(admin.ModelAdmin):
     list_display = ["id", "product_catalog", "Level2ID", "Level2Name", "Level3ID", "Level3Name", "Level4ID",
                     "Level4Name"]
 
+
 @admin.register(FeatureETIMDetails)
 class FeatureETIMDetailsAdmin(admin.ModelAdmin):
     readonly_fields = ()
@@ -53,8 +55,10 @@ class FeatureETIMDetailsAdmin(admin.ModelAdmin):
     ]
     list_max_show_all = 5000000
     list_per_page = 1000
+
+
 @admin.register(FeatureETIMDetails_Data)
-class FeatureETIMDetails_DataAdmin(admin.ModelAdmin):
+class FeatureETIMDetailsDataAdmin(admin.ModelAdmin):
     readonly_fields = ("featureETIMDetails_product", "featureETIMDetails")
     list_display = [
         "id",
@@ -65,22 +69,22 @@ class FeatureETIMDetails_DataAdmin(admin.ModelAdmin):
     list_max_show_all = 5000000
     list_per_page = 1000
 
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    readonly_fields = ('id', 'brand', 'Series', )
+    readonly_fields = ('id', 'brand', 'Series',)
     list_display = ["ProductName", "RetailPrice", "is_hit", "is_new", ]
     list_max_show_all = 30000
     list_per_page = 1000
     search_help_text = True
 
 
-class Product_Admin_inline(admin.TabularInline):
+class Product_AdminInline(admin.TabularInline):
     show_change_link = True
     model = Product
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 1, 'cols': 20})},
     }
-
 
 # from django.shortcuts import redirect
 #

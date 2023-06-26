@@ -8,7 +8,6 @@ from django.contrib.auth.models import PermissionsMixin
 from django.core.mail import send_mail
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from parler.models import TranslatableModel
 
 from .managers import UserManager
 
@@ -73,10 +72,23 @@ class Confirm_phone(models.Model):
     ucaller_id = models.IntegerField(default=0)
 
 
-class Agreement(TranslatableModel):
-    id = models.AutoField(primary_key=True, editable=False, unique=True)
-    title = models.TextField(_("Глава"))
-    text = models.TextField(_("Текст"))
+class Faq(models.Model):
+    text = models.TextField(null=True, blank=True)
+    underText = models.TextField(null=True, blank=True)
 
-    def __str__(self):
-        return self.title
+
+class NewCall(models.Model):
+    name = models.TextField(null=True, blank=True)
+    phone = models.TextField(null=True, blank=True)
+
+
+class NewPartner(models.Model):
+    name = models.TextField(null=True, blank=True)
+    phone = models.TextField(null=True, blank=True)
+    role = models.TextField(null=True, blank=True)
+
+
+class Politics(models.Model):
+    name = models.TextField(null=True, blank=True)
+    phone = models.TextField(null=True, blank=True)
+    role = models.TextField(null=True, blank=True)

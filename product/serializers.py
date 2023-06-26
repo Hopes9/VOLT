@@ -13,15 +13,17 @@ class ProductSerializer(serializers.ModelSerializer):
                   "Weight", "brand", "Series", "AnalitCat", "Price2", "RetailPrice", "RetailCurrency",
                   ]
 
+
 class CertificateInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = CertificateInfo
         fields = ["data", ]
 
+
 class CountrySerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
-        fields = ["data", ]
+        fields = ["countries", "countries__country"]
 
 
 class FeatureETIMDetails_Serializer(serializers.ModelSerializer):
@@ -55,7 +57,7 @@ class RelatedProdSerializer(serializers.ModelSerializer):
 class CatalogBrochureSerializer(serializers.ModelSerializer):
     class Meta:
         model = CatalogBrochure
-        fields = ["data", ]
+        fields = "__all__"
 
 
 class RsCatalogSerializer(serializers.ModelSerializer):
@@ -73,4 +75,4 @@ class Product_imageSerializer(serializers.ModelSerializer):
 class Product_videoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product_video
-        fields = ["videoURL",]
+        fields = ["videoURL", ]

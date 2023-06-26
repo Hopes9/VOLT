@@ -26,6 +26,7 @@ class Status(Choice):
     def __str__(self):
         return str(self.value)
 
+
 class Delivery(models.Model):
     id = models.AutoField(primary_key=True, editable=False, unique=True)
     user_id = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -45,14 +46,14 @@ class Order(models.Model):
     status = models.PositiveSmallIntegerField(_("status"), choices=Status.choices(),
                                               default=Status.CREATED, db_index=True)
     data_order = models.DateTimeField(_("Дата создания"), auto_now_add=True)
-    address = models.TextField(_("Адрес"),)
+    address = models.TextField(_("Адрес"), )
     chek = models.TextField(_("Чек"), null=True, blank=True)
 
     delivery = models.ForeignKey(Delivery, on_delete=models.CASCADE)
     pay = models.BooleanField(_("Оплачено"), default=False)
     pay_online = models.BooleanField(_("Оплата онлайн"), default=None, null=True, blank=True)
     # pay_online_secret_code = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True)
-    sum = models.FloatField(_("Сумма"),)
+    sum = models.FloatField(_("Сумма"), )
     date_close = models.DateTimeField(_("Дата закрытия"), null=True, default=None, blank=True)
     discount = models.IntegerField(_("Скидка"), default=0, null=True, blank=True)
     count_product = models.IntegerField(_("Кол-во продуктов"), default=0, null=True, blank=True)

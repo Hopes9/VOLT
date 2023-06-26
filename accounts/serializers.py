@@ -1,7 +1,6 @@
-
 from rest_framework import serializers
 
-from accounts.models import User
+from accounts.models import Faq, NewCall, NewPartner, Politics, User
 
 
 class userProfileSerializer(serializers.ModelSerializer):
@@ -40,5 +39,27 @@ class CreateUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
     middle_name = serializers.CharField(required=True)
-    
-    
+
+
+class FaqSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Faq
+        fields = "__all__"
+
+
+class NewCallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewCall
+        fields = "__all__"
+
+
+class NewPartnerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NewPartner
+        fields = "__all__"
+
+
+class PoliticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Politics
+        fields = "__all__"

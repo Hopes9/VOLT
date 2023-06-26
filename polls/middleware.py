@@ -19,7 +19,7 @@ class RequestTimeMiddleware:
         timestamp = time.monotonic()
 
         response = self.get_response(request)
-
+        
         query_count = len(connection.queries)
 
         data = {

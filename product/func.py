@@ -1,7 +1,7 @@
 import secrets
 import string
 
-from product.models import RsCatalog, Product
+from product.models import RsCatalog
 
 
 def find_by_key(iterable, key, value):
@@ -32,23 +32,27 @@ def get_secret_key_():
 
 
 def update_catalog():
-    Catalog = []
-    rowsLevel4 = RsCatalog.objects.all().distinct("Level4ID")
-    for row in rowsLevel4:
-        Catalog.append({"Level4ID": row.Level4ID, "Level4Name": row.Level4Name})
+    catalog = []
+    rows_level4 = RsCatalog.objects.all().distinct("Level4ID")
+    for row in rows_level4:
+        catalog.append({"Level4ID": row.Level4ID, "Level4Name": row.Level4Name})
 
-    for h in Catalog:
-        h["Level3"] = list(RsCatalog.objects.filter(Level4ID=h["Level4ID"]).distinct("Level3ID").values("Level3ID", "Level3Name"))
-    for g in Catalog:
+    for h in catalog:
+        h["Level3"] = list(
+            RsCatalog.objects.filter(Level4ID=h["Level4ID"]).distinct("Level3ID").values("Level3ID", "Level3Name"))
+    for g in catalog:
         for i in g["Level3"]:
-            i["Level2"] = list(RsCatalog.objects.filter(Level3ID=i["Level3ID"]).distinct("Level2ID").values("Level2ID", "Level2Name"))
-    return Catalog
+            i["Level2"] = list(
+                RsCatalog.objects.filter(Level3ID=i["Level3ID"]).distinct("Level2ID").values("Level2ID", "Level2Name"))
+    return catalog
 
-def chekListInt(l):
+
+def chek_list_int(l):
     try:
         return list(map(int, l.split(",")))
     except:
         return []
+
 
 def percent(part, whole):
     try:

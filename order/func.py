@@ -64,7 +64,6 @@ def send_my_email_create(order):
     email.content_subtype = "html"
     email.send()
 
-
     send_my_email_create_she(order, html_message)
 
 
@@ -86,7 +85,6 @@ def send_my_email_create_she(order, oplat):
 
 
 def send_my_email_pay(lang, order):
-
     values, orders = rows_email(order)
     user_u = User.objects.get(id=orders["id_user_id"])
 
@@ -129,4 +127,3 @@ def send_for_user_link_pay_true(order):
     )
     email.content_subtype = "html"
     email.send()
-
