@@ -4,10 +4,9 @@ from datetime import datetime
 
 from django.db.models import Count, Max, Min, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Length
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
-from rest_framework.decorators import permission_classes
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,8 +16,10 @@ from product.ftp import getfile
 from product.func import chek_list_int, update_catalog
 from product.models import Brand, CatalogBrochure, CertificateInfo, Country, FeatureETIMDetails, \
     FeatureETIMDetails_Data, Product, Product_image, Product_video, RelatedProd, RsCatalog, Series
-from product.serializers import CatalogBrochureSerializer, CertificateInfoSerializer, CountrySerializer, \
-    ProductSerializer, Product_imageSerializer, Product_videoSerializer, RelatedProdSerializer, RsCatalogSerializer
+from product.serializers import CatalogBrochureSerializer, CertificateInfoSerializer, ProductSearchSerializer, \
+    ProductSerializer, \
+    Product_imageSerializer, Product_videoSerializer, RelatedProdSerializer, RsCatalogSerializer, \
+    Search_serializers
 
 
 class ProductMain(APIView):
@@ -37,20 +38,26 @@ class ProductMain(APIView):
         return Response(serializer.data)
 
 
+@swagger_auto_schema(responses={200: Search_serializers(many=False)})
 class SearchProduct(APIView):
     @staticmethod
     def post(request):
-        if request.data.get("find") is not None:
+        search = Search_serializers(data=request.data) 
+        search.is_valid(raise_exception=True)
+        data = search.data
+        if data.get("find") is not None:
             st = request.data.get("find")
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
-        if request.data.get("limit") is not None:
-            limit = request.GET.get("limit")
+        if data.get("limit") is not None:
+            limit = data.get("limit")
             products = Product.objects.filter(Q(ProductName__icontains=st) | Q(VendorProdNum__icontains=st))[:limit]
+            serializer = ProductSearchSerializer(products, many=True)
+            return Response(serializer.data)
         else:
             products = Product.objects.filter(Q(ProductName__icontains=st) | Q(VendorProdNum__icontains=st))
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data)
+            serializer = ProductSearchSerializer(products, many=True)
+            return Response(serializer.data)
 
 
 class FavesProduct(APIView):

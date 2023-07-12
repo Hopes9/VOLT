@@ -15,6 +15,7 @@ from accounts.models import Faq, NewCall, NewPartner, Politics, User
 from accounts.serializers import FaqSerializer, NewCallSerializer, NewPartnerSerializer, PoliticsSerializer
 from product.models import Product
 
+from accounts.serializers import JSONWebTokenSerializer
 
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -66,6 +67,21 @@ class CookieTokenObtainPairView(TokenObtainPairView):
             response.set_cookie("refresh_token", response.data["refresh"], max_age=COOKIE_MAX_AGE, httponly=False)
             del response.data["refresh"]
         return super().finalize_response(request, response, *args, **kwargs)
+
+
+class LoginJWT(JSONWebTokenSerializer):
+    def validate(self, attrs):
+        credentials = {
+            'email': '',
+            'phone': '',
+            'password': attrs.get("password")
+        }
+        user_obj = User.objects.filter(email=attrs.get("email")).first() or User.objects.filter(phone=attrs.get("phone")).first()
+        print(user_obj, "ASd")
+        if user_obj:
+            credentials['phone'] = user_obj.phone
+
+        return super().validate(credentials)
 
 
 class CookieTokenRefreshView(TokenRefreshView):

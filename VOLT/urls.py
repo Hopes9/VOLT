@@ -1,14 +1,13 @@
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import include, path, re_path
 from django.views.static import serve
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from accounts.models import Faq
 from . import settings
-from .views import FaqApiview, LogoutView, LogoutAllView, CookieTokenObtainPairView, CookieTokenRefreshView, \
-    All_product, \
+from .views import All_product, CookieTokenRefreshView, FaqApiview, LoginJWT, LogoutAllView, LogoutView, \
     PoliticsApiview, Rassilka_off
 
 schema_view = get_schema_view(
@@ -23,7 +22,7 @@ schema_view = get_schema_view(
     public=True,
     permission_classes=(permissions.AllowAny,),
 )
-# from rosetta
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     
@@ -31,7 +30,7 @@ urlpatterns = [
     path("redoc", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     
     
-    path("jwt", CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("jwt", TokenObtainPairView.as_view(serializer_class=LoginJWT), name="token_obtain_pair"),
     path("jwt/refresh", CookieTokenRefreshView.as_view(), name="token_refresh"),
     
     path("logout/", LogoutView.as_view(), name="auth_logout"),

@@ -14,6 +14,12 @@ class ProductSerializer(serializers.ModelSerializer):
                   ]
 
 
+class ProductSearchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "ProductName"]
+
+
 class CertificateInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = CertificateInfo
@@ -76,3 +82,8 @@ class Product_videoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product_video
         fields = ["videoURL", ]
+
+
+class Search_serializers(serializers.Serializer):
+    limit = serializers.IntegerField(allow_null=True, required=False)
+    find = serializers.CharField(allow_null=True, max_length=200, required=False)

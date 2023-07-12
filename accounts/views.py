@@ -54,7 +54,7 @@ class Confirm_phone_api_view(APIView):
         if phone is not None:
             return generate_phone_code(phone=phone)
         else:
-            return Response({"detail": "Нужно передать номер телефона"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "Нужно передать номер телефона"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class Confirm_code_api_view(APIView):

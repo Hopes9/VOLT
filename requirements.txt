@@ -1,4 +1,4 @@
-Django==4.2.2
+Django==4.2.3
 channels==4.0.0
 djangorestframework~=3.14.0
 requests==2.31.0
@@ -7,12 +7,12 @@ asgiref==3.7.2
 greensms==2.0.1
 python-dotenv==1.0.0
 coreapi~=2.3.3
-django-cors-headers==4.1.0
+django-cors-headers==4.2.0
 djangorestframework-simplejwt==5.2.2
 django-filter==23.2
 drf_yasg==1.21.6
-whitenoise==6.4.0
+whitenoise==6.5.0
 psycopg2==2.9.6
-Pillow==9.5.0
+Pillow==10.0.0
 xmltodict
-cryptography
+cryptography==41.0.2
